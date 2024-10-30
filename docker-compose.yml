@@ -1,0 +1,60 @@
+version: "3.2"
+services:
+  gateway:
+    container_name: gateway-api
+    build:
+      context: ./gateway
+      dockerfile: ./Dockerfile
+    image: nestjs/base:10.4.5-alpine
+    restart: "no"
+    volumes:
+      - ./gateway-api:/opt
+    env_file: ./.env
+    ports:
+      - ${GATEWAY_SERVICE_PORT}:8000
+    working_dir: /opt
+    command: npm run start:dev
+
+  user_service:
+    container_name: user_service
+    working_dir: /opt
+    build:
+      context: ./user-service
+      dockerfile: ./Dockerfile
+    env_file:
+      - ./.env
+    volumes:
+      - ./user-service:/opt
+    command: npm run start:dev
+
+  rabbitMQ:
+    container_name: rabbitMQ
+    image: rabbitmq:4.0.3-management-alpine
+    volumes:
+      - ~/.docker-conf/rabbitmq/data/:/var/lib/rabbitmq/
+      - ~/.docker-conf/rabbitmq/log/:/var/log/rabbitmq
+    env_file:
+      - ./.env
+    ports:
+      - ${RabbitMQ_PORT}:5672
+      - 15672:15672
+
+  postgres_db:
+    container_name: postgres
+    image: postgres
+    restart: "no"
+    working_dir: /opt
+    env_file:
+      - ./.env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/db-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      - POSTGRES_PASSWORD=${DB_POSTGRESS_PASSWORD}
+      - POSTGRES_USER=${DB_POSTGRESS_USERNAME}
+      - POSTGRES_DB=${DB_POSTGRESS_NAME}
+    ports:
+      - "5432:5432"
+
+volumes:
+  pgdata:
