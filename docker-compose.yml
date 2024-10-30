@@ -26,7 +26,17 @@ services:
     volumes:
       - ./user-service:/opt
     command: npm run start:dev
-
+  product_service:
+    container_name: product_service
+    working_dir: /opt
+    build:
+      context: ./product-service
+      dockerfile: ./Dockerfile
+    env_file:
+      - ./.env
+    volumes:
+      - ./product-service:/opt
+    command: npm run start:dev
   rabbitMQ:
     container_name: rabbitMQ
     image: rabbitmq:4.0.3-management-alpine

@@ -4,6 +4,7 @@ import { RmqOptions, Transport } from '@nestjs/microservices';
 export interface IConfigService {
   port: number;
   userService: any;
+  productService:any
 }
 @Injectable()
 export class ConfigService {
@@ -19,8 +20,18 @@ export class ConfigService {
         queue: 'user-queue',
         queueOptions: {},
       },
-    } as RmqOptions;
+    };
+    this.envConfig.productService = {
+      transport: Transport.RMQ,
+      options: {
+        urls: ['amqp://rabbitMQ'],
+        queue: 'product-queue',
+        queueOptions: {},
+      },
+    };
+  
   }
+
   get(key: keyof IConfigService) {
     return this.envConfig[key];
   }
