@@ -4,20 +4,22 @@ import { Services } from 'src/common/enums/service.enum';
 import { ConfigService } from 'src/configs/config';
 import { ClientProxyFactory, RmqOptions } from '@nestjs/microservices';
 import { ProductController } from './product/product.controller';
+import { FileSystemStoredFile, NestjsFormDataModule } from 'nestjs-form-data';
+import { join } from 'path';
 
 @Module({
-  controllers: [AdminController,ProductController],
+  imports: [NestjsFormDataModule],
+  controllers: [AdminController, ProductController],
   providers: [
     ConfigService,
     {
       provide: Services.Product,
-      useFactory(configService:ConfigService){
-        const productServiceOptions=configService.get('productService');
+      useFactory(configService: ConfigService) {
+        const productServiceOptions = configService.get('productService');
         return ClientProxyFactory.create(productServiceOptions);
       },
-      inject:[ConfigService]
+      inject: [ConfigService],
     },
-    
   ],
 })
 export class AdminModule {}

@@ -5,6 +5,7 @@ import { ProductEntity } from './entities/product.entity';
 import { ProductFileEntity } from './entities/product-file.entity';
 import { ProductController } from './product.controller';
 import { ProductService } from './product.service';
+// import { S3Service } from './config/uploadFile-s3.config';
 
 @Module({
   imports: [
