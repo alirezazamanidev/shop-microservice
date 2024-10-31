@@ -3,7 +3,7 @@ import { AuthService } from './auth.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserEntity } from '../user/entities/user.entity';
 import { OtpEntity } from '../user/entities/otp.entity';
-import { SendOtpDto } from './dtos/auth.dto';
+import { CheckOtpDto, SendOtpDto } from './dtos/auth.dto';
 import { JwtService } from '@nestjs/jwt';
 import { RpcExceptionError } from 'src/common/exceptions/Rpc.exception';
 
@@ -135,6 +135,76 @@ describe('AuthService', () => {
         userId: mockUser.id,
       });
       expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('CheckOtp', () => {
+    let checkOtpDto: CheckOtpDto = { phone: '09914275883', code: '12345' };
+    it('should throw error if user dose not exist', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.checkOtp(checkOtpDto)).rejects.toThrow(
+        RpcExceptionError,
+      );
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: { phone: checkOtpDto.phone },
+        relations: { otp: true },
+      });
+    });
+    it('should throw error when otp code expired!', async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        otp: {
+          ...mockOtp,
+          expiresIn: new Date(new Date().getTime() - 120 * 1000),
+        },
+      });
+
+      await expect(service.checkOtp(checkOtpDto)).rejects.toThrow(
+        RpcExceptionError,
+      );
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: { phone: checkOtpDto.phone },
+        relations: { otp: true },
+      });
+    });
+    it('should be throw Error if otp code incorrect', async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        otp: {
+          code: '54321',
+          expiresIn: new Date(new Date().getTime() + 120 * 1000),
+        },
+      });
+      await expect(service.checkOtp(checkOtpDto)).rejects.toThrow(
+        RpcExceptionError,
+      );
+
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: { phone: checkOtpDto.phone },
+        relations: { otp: true },
+      });
+    });
+    it('should return token if otp  code is correct!', async () => {
+      let validToken = 'jwt-token';
+      mockUserRepository.findOne.mockResolvedValue({
+        ...mockUser,
+        otp: {
+          ...mockOtp,
+          code: '12345',
+          expiresIn: new Date(new Date().getTime() + 120 * 1000), // OTP معتبر
+        },
+      });
+      jest.spyOn(service, 'generateJwtToken').mockReturnValue(validToken);
+
+      const result = await service.checkOtp(checkOtpDto);
+
+      expect(result).toHaveProperty('token',validToken);
+      expect(service.generateJwtToken).toHaveBeenCalledWith(mockUser.id);
+      expect(mockUserRepository.findOne({
+        where: { phone: checkOtpDto.phone },
+        relations: { otp: true },
+      }))
     });
   });
 });
