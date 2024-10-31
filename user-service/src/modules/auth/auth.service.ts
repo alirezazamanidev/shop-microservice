@@ -17,7 +17,6 @@ export class AuthService {
     private readonly otpRepository: Repository<OtpEntity>,
     private jwtService: JwtService,
   ) {}
-
   async sendOtp(sendotpDto: SendOtpDto) {
     let { phone } = sendotpDto;
     let user = await this.userRepository.findOneBy({ phone });
@@ -38,7 +37,7 @@ export class AuthService {
     };
   }
 
-  private async createOtpForUser(userId: number) {
+   async createOtpForUser(userId: number) {
     let otp = await this.otpRepository.findOneBy({ userId });
     const code = randomInt(10000, 99999).toString();
     let expiresIn = new Date(new Date().getTime() + 1000 * 60 * 2);
