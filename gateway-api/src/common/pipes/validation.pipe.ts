@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe,ValidationError } from '@nestjs/common';
 import ValidationException from '../exceptions/validation.exception';
 
 export class ValidationPipeError extends ValidationPipe {
@@ -6,13 +6,13 @@ export class ValidationPipeError extends ValidationPipe {
     super({
       
        transform:true,
-      exceptionFactory(errors) {
+      exceptionFactory(errors:ValidationError[]) {
         const formattedErrors = errors.flatMap(error =>
-            Object.values(error.constraints)
-          );
+          Object.values(error.constraints || {}).map(message =>
+            `${error.property}: ${message}`
+          )
+        );
 
-      
-   
 
         return new ValidationException(formattedErrors);
       },

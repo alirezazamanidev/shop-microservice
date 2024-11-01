@@ -49,7 +49,6 @@ export class ProductController {
     @UploadedFiles()
     files,
   ) {
-    throw new InternalServerErrorException('bad')
     let response = await lastValueFrom(
       this.productClientService
         .send(ProductAdminPatterns.Create, {
