@@ -2,7 +2,7 @@
 export class CreateProductDto {
 
   title: string;
-  dexcription: string;
+  description: string;
   count: number;
   discount: number;
   price: number;

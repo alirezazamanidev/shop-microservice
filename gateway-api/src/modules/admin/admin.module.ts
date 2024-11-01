@@ -2,13 +2,11 @@ import { Module } from '@nestjs/common';
 import { AdminController } from './admin.controller';
 import { Services } from 'src/common/enums/service.enum';
 import { ConfigService } from 'src/configs/config';
-import { ClientProxyFactory, RmqOptions } from '@nestjs/microservices';
+import { ClientProxyFactory } from '@nestjs/microservices';
 import { ProductController } from './product/product.controller';
-import { FileSystemStoredFile, NestjsFormDataModule } from 'nestjs-form-data';
-import { join } from 'path';
 
 @Module({
-  imports: [NestjsFormDataModule],
+  imports: [],
   controllers: [AdminController, ProductController],
   providers: [
     ConfigService,

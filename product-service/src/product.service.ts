@@ -1,11 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductEntity } from './entities/product.entity';
-import { Repository } from 'typeorm';
+import { DataSource, DeepPartial, Repository } from 'typeorm';
 import { ProductFileEntity } from './entities/product-file.entity';
 
 import { CreateProductDto } from './dtos/create-product.dto';
-// import { S3Service } from './config/uploadFile-s3.config';
+import { RpcExceptionError } from './common/exceptions/Rpc.exception';
+import slugify from 'slugify';
 @Injectable()
 export class ProductService {
   constructor(
@@ -13,15 +14,73 @@ export class ProductService {
     private productRepository: Repository<ProductEntity>,
     @InjectRepository(ProductFileEntity)
     private productFileRepostory: Repository<ProductFileEntity>,
-    // private readonly s3Service:S3Service
+    private readonly dataSourse: DataSource,
   ) {}
 
+  async create(peoductDto: CreateProductDto) {
+    let { coverImage, images, title, description, count, discount, price } =
+      peoductDto;
 
-  async create(peoductDto:CreateProductDto){
-    let {coverImage}=peoductDto
-   
-  
-    // await this.s3Service.uploadFile(coverImage,'product/images');
-    return 'ok'
+    let createObject: DeepPartial<ProductEntity> = {
+      title,
+      description,
+      count: count < 0 ? 0 : count,
+      discount: discount < 0 ? 0 : discount,
+      price: price < 0 ? 0 : price,
+    };
+    await this.checkExistBySlug(title);
+    createObject['slug'] = slugify(title, {
+      replacement: '_',
+      trim: true,
+      lower: true,
+    });
+    let newProduct=null
+    await this.dataSourse.transaction(async (manager) => {
+      //! create product
+      newProduct = manager.create(ProductEntity, createObject);
+      newProduct = await manager.save(ProductEntity, newProduct);
+      // created Images
+      let imagesList: DeepPartial<ProductFileEntity>[] = [];
+      images.forEach((image) => {
+        imagesList.push({
+          product: newProduct,
+          size: image.size,
+          originalname: image.originalname,
+          fieldname: image.fieldname,
+          path: image.path,
+          mimetype:image.mimetype
+        });
+      });
+      let cover = manager.create(ProductFileEntity, {
+        productId: newProduct.id,
+        size: coverImage.size,
+        originalname: coverImage.originalname,
+        fieldname: coverImage.fieldname,
+        path: coverImage.path,
+        mimetype:coverImage.mimetype
+      });
+      //save images
+      cover = await manager.save(ProductFileEntity, cover);
+      let photos = await manager.save(ProductFileEntity, imagesList);
+      newProduct.coverImage = cover;
+      newProduct.images = photos;
+      newProduct = await manager.save(ProductEntity, newProduct);
+    });
+    return {
+      message:'product has been created!',
+      product_id:newProduct.id
+    }
+  }
+  async checkExistBySlug(slug: string) {
+    const product = await this.productRepository.findOne({
+      where: { slug },
+      select: { id: true, slug: true },
+    });
+    if (product)
+      throw new RpcExceptionError({
+        message: 'product slug already has exist',
+        statusCode: HttpStatus.CONFLICT,
+      });
+    return slug;
   }
 }
