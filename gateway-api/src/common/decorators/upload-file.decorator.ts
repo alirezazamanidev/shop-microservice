@@ -5,17 +5,16 @@ import {
 } from '../interceptors/upload-file.interceptor';
 import { FileCleanupInterceptor } from '../interceptors/FileCleanup.interceptor';
 import { MulterField } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
-import { FileInterceptor } from '@nestjs/platform-express';
-
-export const UploadSingleFile = (fieldname: string, storage: any) =>
+import { UploadValidatonOption } from '../interfaces/validationOption.interface';
+export const UploadSingleFile = (fieldname: string,options:UploadValidatonOption, storage: any) =>
   applyDecorators(
-    UseInterceptors(UploadFile(fieldname, storage), FileCleanupInterceptor),
+    UseInterceptors(UploadFile(fieldname, storage,options)),
   );
 
-export const UploadMultiFiles = (fieldsname: MulterField[], storage: any) =>
+export const UploadMultiFiles = (fieldsname: MulterField[],options:UploadValidatonOption, storage: any) =>
   applyDecorators(
     UseInterceptors(
-      UploadFileFields(fieldsname, storage),
-      FileCleanupInterceptor,
+      UploadFileFields(fieldsname, storage,options),
+      
     ),
   );

@@ -3,12 +3,14 @@ import { AppModule } from './app.module';
 import { ValidationPipeError } from './common/pipes/validation.pipe';
 import { getGlobalFilters } from './common/filters';
 import SwaggerConfig from './configs/swagger.config';
+import { FileCleanupInterceptor } from './common/interceptors/FileCleanup.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const httpAdapter = app.get(HttpAdapterHost);
-  app.useGlobalPipes(new ValidationPipeError());
+  app.useGlobalInterceptors(new FileCleanupInterceptor())
   app.useGlobalFilters(...getGlobalFilters(httpAdapter));
+  app.useGlobalPipes(new ValidationPipeError());
   app.setGlobalPrefix('/api');
   //swaggger config 
   SwaggerConfig(app);

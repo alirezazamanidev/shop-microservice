@@ -5,40 +5,48 @@ import {
   CallHandler,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { Observable, tap, catchError } from 'rxjs';
-import { unlinkSync } from 'fs';
+import { Observable, catchError } from 'rxjs';
+import { unlink, access, constants } from 'fs/promises';
 import { Request } from 'express';
+import ValidationException from '../exceptions/validation.exception';
 
 @Injectable()
 export class FileCleanupInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest<Request>();
     return next.handle().pipe(
-      catchError((error) => {
-        // پاک کردن فایل‌ها در صورت بروز خطا
-        if (request.files) {
-          const files = request.files as {
-            [fieldname: string]: Express.Multer.File[];
-          };
-          Object.keys(files).forEach((field) => {
-            files[field].forEach((file) => {
-              try {
-                unlinkSync(file.path);
-              } catch (err) {
-                console.error('Error while deleting file:', err);
-              }
-            });
-          });
-        }
-        if (request.file) {
-          try {
-            unlinkSync(request.file.path);
-          } catch (error) {
-            console.error('Error while deleting file:', error);
-          }
-        }
-        throw new InternalServerErrorException(error.message);
+      catchError(async (error) => {
+        await this.cleanupFiles(request);
+        throw error;
       }),
     );
+  }
+
+  private async cleanupFiles(request: Request) {
+    if (request.files) {
+      const files = request.files as {
+        [fieldname: string]: Express.Multer.File[];
+      };
+      await Promise.all(
+        Object.keys(files).flatMap((field) =>
+          files[field].map((file) => this.checkAndDeleteFile(file.path)),
+        ),
+      );
+    }
+
+    if (request.file) {
+      await this.checkAndDeleteFile(request.file.path);
+    }
+  }
+
+  private async checkAndDeleteFile(path: string) {
+    try {
+      await access(path, constants.F_OK); // چک کردن وجود فایل
+      await unlink(path); // حذف فایل اگر وجود دارد
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        console.error('Error while deleting file:', error); // فقط اگر خطا غیر از نبود فایل بود، لاگ شود
+      }
+    }
   }
 }

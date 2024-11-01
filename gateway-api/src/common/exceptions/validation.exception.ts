@@ -1,7 +1,7 @@
-import { UnprocessableEntityException } from '@nestjs/common';
+import { BadRequestException, UnprocessableEntityException } from '@nestjs/common';
 
-export default class ValidationException extends UnprocessableEntityException {
-  constructor(public validationErrors: object[] | string[]) {
+export default class ValidationException extends BadRequestException {
+  constructor(public validationErrors: object[] | string[] | string) {
     super();
   }
 }
