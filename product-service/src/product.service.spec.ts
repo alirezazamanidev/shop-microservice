@@ -6,8 +6,15 @@ import { ProductFileEntity } from './entities/product-file.entity';
 import { DataSource } from 'typeorm';
 import { CreateProductDto } from './dtos/create-product.dto';
 import slugify from 'slugify';
+import { access, constants, unlink } from 'fs/promises';
+import { RpcExceptionError } from './common/exceptions/Rpc.exception';
 jest.mock('slugify');
 const mockSlugify = slugify as unknown as jest.Mock;
+
+jest.mock('fs/promises', () => ({
+  access: jest.fn(),
+  unlink: jest.fn(),
+}));
 
 describe('ProductService', () => {
   let service: ProductService;
@@ -16,6 +23,7 @@ describe('ProductService', () => {
     create: jest.fn(),
     save: jest.fn(),
     findOne: jest.fn(),
+    remove: jest.fn(),
   };
   const mockDataSource = {
     transaction: jest.fn().mockImplementation((fn) => {
@@ -111,6 +119,61 @@ describe('ProductService', () => {
         select: { id: true, slug: true },
       });
       expect(mockDataSource.transaction).toHaveBeenCalled();
+    });
+  });
+
+  describe('Remove', () => {
+    const mockProduct = {
+      id: 1,
+      images: [{ id: 1, path: 'path/to/image1.jpg' }],
+      coverImage: { id: 2, path: 'path/to/cover.jpg' },
+    };
+    it('should successfully remove a product and its images', async () => {
+      mockProductRepository.findOne.mockResolvedValueOnce(mockProduct);
+      mockProductRepository.remove.mockResolvedValueOnce(undefined);
+   
+      (unlink as jest.Mock).mockResolvedValue(undefined);
+      const result = await service.remove(mockProduct.id);
+
+      expect(mockProductRepository.findOne).toHaveBeenCalledWith({
+        where: { id: mockProduct.id },
+        relations: { images: true, coverImage: true },
+        select: {
+          id: true,
+          images: { id: true, path: true },
+          coverImage: { id: true, path: true },
+        },
+      });
+     
+      expect(unlink).toHaveBeenCalledWith('path/to/image1.jpg');
+      expect(unlink).toHaveBeenCalledWith('path/to/cover.jpg');
+      expect(mockProductRepository.remove).toHaveBeenCalledWith(mockProduct);
+      expect(result).toHaveProperty('message');
+    });
+
+    it('should log error if image file does not exist and continue deleting other files', async () => {
+      const product = {
+        id: 1,
+        images: [{ id: 1, path: 'path/to/nonexistent.jpg' }],
+        coverImage: { id: 2, path: 'path/to/cover.jpg' },
+      };
+
+      mockProductRepository.findOne.mockResolvedValueOnce(product);
+      (access as jest.Mock)
+        .mockRejectedValueOnce(new Error('ENOENT')) // simulate file not existing for image
+        .mockResolvedValueOnce(undefined); // coverImage exists
+      (unlink as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await service.remove(product.id);
+
+      expect(unlink).toHaveBeenCalledWith('path/to/cover.jpg');
+      expect(mockProductRepository.remove).toHaveBeenCalledWith(product);
+      expect(result).toEqual({ message: 'محصول با موفقیت حذف شد!' });
+    });
+    it('should throw an error if product is not found', async () => {
+      mockProductRepository.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.remove(999)).rejects.toThrow(RpcExceptionError);
     });
   });
 });

@@ -7,6 +7,7 @@ import { ProductFileEntity } from './entities/product-file.entity';
 import { CreateProductDto } from './dtos/create-product.dto';
 import { RpcExceptionError } from './common/exceptions/Rpc.exception';
 import slugify from 'slugify';
+import {  unlink } from 'fs/promises';
 @Injectable()
 export class ProductService {
   constructor(
@@ -34,7 +35,7 @@ export class ProductService {
       trim: true,
       lower: true,
     });
-    let newProduct=null
+    let newProduct = null;
     await this.dataSourse.transaction(async (manager) => {
       //! create product
       newProduct = manager.create(ProductEntity, createObject);
@@ -48,7 +49,7 @@ export class ProductService {
           originalname: image.originalname,
           fieldname: image.fieldname,
           path: image.path,
-          mimetype:image.mimetype
+          mimetype: image.mimetype,
         });
       });
       let cover = manager.create(ProductFileEntity, {
@@ -57,7 +58,7 @@ export class ProductService {
         originalname: coverImage.originalname,
         fieldname: coverImage.fieldname,
         path: coverImage.path,
-        mimetype:coverImage.mimetype
+        mimetype: coverImage.mimetype,
       });
       //save images
       cover = await manager.save(ProductFileEntity, cover);
@@ -67,9 +68,53 @@ export class ProductService {
       newProduct = await manager.save(ProductEntity, newProduct);
     });
     return {
-      message:'product has been created!',
-      product_id:newProduct.id
+      message: 'product has been created!',
+      product_id: newProduct.id,
+    };
+  }
+
+  async remove(id: number) {
+    const product = await this.getOneById(id);
+
+    //? remove images
+    for (const image of product.images) {
+  
+      unlink(image.path);
     }
+  
+    await unlink(product.coverImage.path);
+
+    //remove product
+    await this.productRepository.remove(product);
+    return {
+      message: 'محصول با موفقیت حذف شد!',
+    };
+  }
+  async getOneById(id: number) {
+    const product = await this.productRepository.findOne({
+      where: { id },
+      relations: {
+        images: true,
+        coverImage: true,
+      },
+      select: {
+        id: true,
+        images: {
+          id: true,
+          path: true,
+        },
+        coverImage: {
+          id: true,
+          path: true,
+        },
+      },
+    });
+    if (!product)
+      throw new RpcExceptionError({
+        message: 'محصول یافت نشد',
+        statusCode: HttpStatus.NOT_FOUND,
+      });
+    return product;
   }
   async checkExistBySlug(slug: string) {
     const product = await this.productRepository.findOne({

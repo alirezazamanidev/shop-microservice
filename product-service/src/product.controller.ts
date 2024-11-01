@@ -9,9 +9,11 @@ export class ProductController {
   constructor(private readonly productService: ProductService) {}
   @MessagePattern(ProductPatterns.Create)
   create(@Payload() productDto:CreateProductDto) {
-    
-    
-    // return productDto
     return  this.productService.create(productDto)
+  }
+  @MessagePattern(ProductPatterns.Delete)
+  remove(@Payload('id') id:number){
+    return this.productService.remove(id);
+
   }
 }
